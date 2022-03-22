@@ -25,3 +25,7 @@ default-features = false
 [[example]]
 name = "example"
 path = "example.rs"
+
+[[example]]
+name = "ccgp"
+path = "ccgp.rs"

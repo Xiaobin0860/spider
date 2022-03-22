@@ -22,6 +22,7 @@ pub struct Website<'a> {
     pub configuration: Configuration,
     /// this is a start URL given when instanciate with `new`
     domain: String,
+    start: String,
     /// contains all non-visited URL
     links: HashSet<String>,
     /// contains all visited URL
@@ -37,8 +38,6 @@ pub struct Website<'a> {
 impl<'a> Website<'a> {
     /// Initialize Website object with a start link to scrawl.
     pub fn new(domain: &str) -> Self {
-        // create home link
-        let links: HashSet<String> = vec![format!("{}/", domain)].into_iter().collect();
         // robots.txt parser
         let robot_txt_url = &format!("{}/robots.txt", domain);
         let parser = RobotFileParser::new(robot_txt_url);
@@ -47,18 +46,17 @@ impl<'a> Website<'a> {
         Self {
             configuration: Configuration::new(),
             domain: domain.to_string(),
-            links,
-            links_visited: HashSet::new(),
-            pages: Vec::new(),
+            start: format!("{}/", domain),
+            links: Default::default(),
+            links_visited: Default::default(),
+            pages: Default::default(),
             robot_file_parser: parser,
-            on_link_find_callback: |s| Some(s),
+            on_link_find_callback: Some,
         }
     }
 
     /// Initialize Website object with a domain and start link to scrawl.
     pub fn new_start(domain: &str, start: &str) -> Self {
-        // create start link
-        let links = HashSet::from([start.to_string()]);
         // robots.txt parser
         let robot_txt_url = &format!("{}/robots.txt", domain);
         let parser = RobotFileParser::new(robot_txt_url);
@@ -67,11 +65,12 @@ impl<'a> Website<'a> {
         Self {
             configuration: Configuration::new(),
             domain: domain.to_string(),
-            links,
-            links_visited: HashSet::new(),
-            pages: Vec::new(),
+            start: format!("{}{}", domain, start),
+            links: Default::default(),
+            links_visited: Default::default(),
+            pages: Default::default(),
             robot_file_parser: parser,
-            on_link_find_callback: |s| Some(s),
+            on_link_find_callback: Some,
         }
     }
 
@@ -84,6 +83,18 @@ impl<'a> Website<'a> {
     pub fn crawl(&mut self) {
         let delay = time::Duration::from_millis(self.configuration.delay);
         let user_agent = self.configuration.user_agent;
+        let on_link_find_callback = self.on_link_find_callback;
+
+        let start_page = Page::new(&self.start, user_agent);
+        self.links_visited.insert(start_page.get_url());
+        self.links = start_page
+            .links(&self.domain)
+            .into_iter()
+            .filter(|link| self.is_allowed(link))
+            .filter_map(on_link_find_callback)
+            .collect();
+        self.pages.push(start_page);
+
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.configuration.concurrency)
             .build()
@@ -93,27 +104,20 @@ impl<'a> Website<'a> {
         while !self.links.is_empty() {
             let mut new_links: HashSet<String> = HashSet::new();
             let (tx, rx) = sync::mpsc::channel();
-            let on_link_find_callback = self.on_link_find_callback;
 
-            self.links
-                .iter()
-                .filter(|link| self.is_allowed(link))
-                .for_each(|link| {
-                    let thread_link: String = link.to_string();
+            self.links.iter().for_each(|link| {
+                if self.configuration.verbose {
+                    println!("- fetch {}", link);
+                }
 
-                    if self.configuration.verbose {
-                        println!("- fetch {}", link);
-                    }
+                let tx = tx.clone();
+                let thread_link = link.clone();
 
-                    let tx = tx.clone();
-
-                    pool.spawn(move || {
-                        if let Some(link_result) = on_link_find_callback(thread_link) {
-                            tx.send(Page::new(&link_result, user_agent)).unwrap();
-                            thread::sleep(delay);
-                        }
-                    });
+                pool.spawn(move || {
+                    tx.send(Page::new(&thread_link, user_agent)).unwrap();
+                    thread::sleep(delay);
                 });
+            });
 
             drop(tx);
 
@@ -121,8 +125,14 @@ impl<'a> Website<'a> {
                 if self.configuration.verbose {
                     println!("- parse {}", page.get_url());
                 }
-
-                new_links.extend(page.links(&self.domain));
+                page.links(&self.domain)
+                    .into_iter()
+                    .filter(|link| self.is_allowed(link))
+                    .for_each(|link| {
+                        if let Some(link) = on_link_find_callback(link) {
+                            new_links.insert(link);
+                        }
+                    });
 
                 self.links_visited.insert(page.get_url());
                 self.pages.push(page);
