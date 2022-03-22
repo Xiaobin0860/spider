@@ -1,6 +1,6 @@
 # Spider
 
-![crate version](https://img.shields.io/crates/v/spider.svg)
+![build status](https://github.com/Xiaobin0860/my-redis/workflows/build/badge.svg)![crate version](https://img.shields.io/crates/v/spider.svg)
 
 Multithreaded web crawler written in Rust.
 

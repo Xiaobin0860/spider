@@ -1,9 +1,9 @@
+extern crate num_cpus;
 extern crate rayon;
 extern crate reqwest;
 extern crate robotparser;
 extern crate scraper;
 extern crate url;
-extern crate num_cpus;
 
 /// Configuration structure for `Website`
 pub mod configuration;

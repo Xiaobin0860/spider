@@ -100,11 +100,9 @@ fn parse_links() {
     assert!(
         page.links("https://choosealicense.com")
             .contains(&"https://choosealicense.com/about/".to_string()),
-        format!(
-            "Could not find {}. Theses URLs was found {:?}",
-            page.url,
-            page.links("https://choosealicense.com")
-        )
+        "Could not find {}. Theses URLs was found {:?}",
+        page.url,
+        page.links("https://choosealicense.com")
     );
 }
 

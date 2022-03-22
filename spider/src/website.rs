@@ -51,7 +51,7 @@ impl<'a> Website<'a> {
             links_visited: HashSet::new(),
             pages: Vec::new(),
             robot_file_parser: parser,
-            on_link_find_callback: |s| s
+            on_link_find_callback: |s| s,
         }
     }
 
@@ -116,12 +116,17 @@ impl<'a> Website<'a> {
     /// - is not already crawled
     /// - is not blacklisted
     /// - is not forbidden in robot.txt file (if parameter is defined)  
-    pub fn is_allowed(&self, link: &String) -> bool {
+    pub fn is_allowed(&self, link: &str) -> bool {
         if self.links_visited.contains(link) {
             return false;
         }
 
-        if self.configuration.blacklist_url.contains(link) {
+        if self
+            .configuration
+            .blacklist_url
+            .iter()
+            .any(|black| black == link)
+        {
             return false;
         }
 
@@ -144,16 +149,17 @@ fn crawl() {
         website
             .links_visited
             .contains(&"https://choosealicense.com/licenses/".to_string()),
-        format!("{:?}", website.links_visited)
+        "{:?}",
+        website.links_visited
     );
 }
 
 #[test]
 fn crawl_link_callback() {
     let mut website: Website = Website::new("https://choosealicense.com");
-    website.on_link_find_callback = |s| { 
-        println!("callback link target: {}", s); 
-        s 
+    website.on_link_find_callback = |s| {
+        println!("callback link target: {}", s);
+        s
     };
     website.crawl();
 
@@ -161,7 +167,8 @@ fn crawl_link_callback() {
         website
             .links_visited
             .contains(&"https://choosealicense.com/licenses/".to_string()),
-        format!("{:?}", website.links_visited)
+        "{:?}",
+        website.links_visited
     );
 }
 
@@ -177,7 +184,8 @@ fn not_crawl_blacklist() {
         !website
             .links_visited
             .contains(&"https://choosealicense.com/licenses/".to_string()),
-        format!("{:?}", website.links_visited)
+        "{:?}",
+        website.links_visited
     );
 }
 
@@ -185,7 +193,7 @@ fn not_crawl_blacklist() {
 fn test_get_robots_txt() {
     let mut website: Website = Website::new("https://stackoverflow.com");
     website.configuration.respect_robots_txt = true;
-    assert!(!website.is_allowed(&"https://stackoverflow.com/posts/".to_string()));
+    assert!(!website.is_allowed("https://stackoverflow.com/posts/"));
 }
 
 #[test]
