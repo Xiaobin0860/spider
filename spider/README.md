@@ -55,7 +55,7 @@ website.configuration.verbose = true; // Defaults to false
 website.configuration.delay = 2000; // Defaults to 250 ms
 website.configuration.concurrency = 10; // Defaults to number of cpus available
 website.configuration.user_agent = "myapp/version"; // Defaults to spider/x.y.z, where x.y.z is the library version
-website.on_link_find_callback = |s| { println!("link target: {}", s); s }; // Callback to run on each link find
+website.on_link_find_callback = |s| { println!("link target: {}", s); Some(s) }; // Callback to run on each link find
 
 website.crawl();
 ```

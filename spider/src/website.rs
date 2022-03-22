@@ -29,7 +29,7 @@ pub struct Website<'a> {
     /// contains page visited
     pages: Vec<Page>,
     /// callback when a link is found
-    pub on_link_find_callback: fn(String) -> String,
+    pub on_link_find_callback: fn(String) -> Option<String>,
     /// Robot.txt parser holder
     robot_file_parser: RobotFileParser<'a>,
 }
@@ -51,7 +51,27 @@ impl<'a> Website<'a> {
             links_visited: HashSet::new(),
             pages: Vec::new(),
             robot_file_parser: parser,
-            on_link_find_callback: |s| s,
+            on_link_find_callback: |s| Some(s),
+        }
+    }
+
+    /// Initialize Website object with a domain and start link to scrawl.
+    pub fn new_start(domain: &str, start: &str) -> Self {
+        // create start link
+        let links = HashSet::from([start.to_string()]);
+        // robots.txt parser
+        let robot_txt_url = &format!("{}/robots.txt", domain);
+        let parser = RobotFileParser::new(robot_txt_url);
+        parser.read();
+
+        Self {
+            configuration: Configuration::new(),
+            domain: domain.to_string(),
+            links,
+            links_visited: HashSet::new(),
+            pages: Vec::new(),
+            robot_file_parser: parser,
+            on_link_find_callback: |s| Some(s),
         }
     }
 
@@ -88,9 +108,10 @@ impl<'a> Website<'a> {
                     let tx = tx.clone();
 
                     pool.spawn(move || {
-                        let link_result = on_link_find_callback(thread_link);
-                        tx.send(Page::new(&link_result, user_agent)).unwrap();
-                        thread::sleep(delay);
+                        if let Some(link_result) = on_link_find_callback(thread_link) {
+                            tx.send(Page::new(&link_result, user_agent)).unwrap();
+                            thread::sleep(delay);
+                        }
                     });
                 });
 
@@ -159,7 +180,7 @@ fn crawl_link_callback() {
     let mut website: Website = Website::new("https://choosealicense.com");
     website.on_link_find_callback = |s| {
         println!("callback link target: {}", s);
-        s
+        Some(s)
     };
     website.crawl();
 
