@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "spider",
-    "spider_cli",
+    "spider",     #
+    "spider_cli", #
     "examples",
 ]
