@@ -29,3 +29,6 @@ path = "example.rs"
 [[example]]
 name = "ccgp"
 path = "ccgp.rs"
+
+[dependencies]
+scraper = "0.12"
