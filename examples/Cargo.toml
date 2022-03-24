@@ -32,3 +32,4 @@ path = "ccgp.rs"
 
 [dependencies]
 scraper = "0.12"
+regex = "1.5"
