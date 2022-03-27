@@ -22,7 +22,6 @@ pub struct Website<'a> {
     pub configuration: Configuration,
     /// this is a start URL given when instanciate with `new`
     domain: String,
-    start: String,
     /// contains all non-visited URL
     links: HashSet<String>,
     /// contains all visited URL
@@ -31,6 +30,7 @@ pub struct Website<'a> {
     pages: Vec<Page>,
     /// callback when a link is found
     pub on_link_find_callback: fn(String) -> Option<String>,
+    pub on_page_callback: Option<fn(Page) -> Vec<String>>,
     /// Robot.txt parser holder
     robot_file_parser: RobotFileParser<'a>,
 }
@@ -46,12 +46,12 @@ impl<'a> Website<'a> {
         Self {
             configuration: Configuration::new(),
             domain: domain.to_string(),
-            start: format!("{}/", domain),
-            links: Default::default(),
+            links: HashSet::from([format!("{}/", domain)]),
             links_visited: Default::default(),
             pages: Default::default(),
             robot_file_parser: parser,
             on_link_find_callback: Some,
+            on_page_callback: None,
         }
     }
 
@@ -65,13 +65,18 @@ impl<'a> Website<'a> {
         Self {
             configuration: Configuration::new(),
             domain: domain.to_string(),
-            start: format!("{}{}", domain, start),
-            links: Default::default(),
+            links: HashSet::from([format!("{}{}", domain, start)]),
             links_visited: Default::default(),
             pages: Default::default(),
             robot_file_parser: parser,
             on_link_find_callback: Some,
+            on_page_callback: None,
         }
+    }
+
+    /// Add a new link to scrawl.
+    pub fn add_link(&mut self, link: &str) {
+        self.links.insert(link.to_string());
     }
 
     /// page getter
@@ -84,16 +89,6 @@ impl<'a> Website<'a> {
         let delay = time::Duration::from_millis(self.configuration.delay);
         let user_agent = self.configuration.user_agent;
         let on_link_find_callback = self.on_link_find_callback;
-
-        let start_page = Page::new(&self.start, user_agent);
-        self.links_visited.insert(start_page.get_url());
-        self.links = start_page
-            .links(&self.domain)
-            .into_iter()
-            .filter(|link| self.is_allowed(link))
-            .filter_map(on_link_find_callback)
-            .collect();
-        self.pages.push(start_page);
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.configuration.concurrency)
@@ -125,7 +120,15 @@ impl<'a> Website<'a> {
                 if self.configuration.verbose {
                     println!("- parse {}", page.get_url());
                 }
-                page.links(&self.domain)
+                self.links_visited.insert(page.get_url());
+                let page_links = if let Some(on_page_callback) = self.on_page_callback {
+                    on_page_callback(page)
+                } else {
+                    let links = page.links(&self.domain);
+                    self.pages.push(page);
+                    links
+                };
+                page_links
                     .into_iter()
                     .filter(|link| self.is_allowed(link))
                     .for_each(|link| {
@@ -133,9 +136,6 @@ impl<'a> Website<'a> {
                             new_links.insert(link);
                         }
                     });
-
-                self.links_visited.insert(page.get_url());
-                self.pages.push(page);
             });
 
             self.links = new_links.clone();
