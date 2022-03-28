@@ -4,6 +4,7 @@ use spider::{
     page::Page,
     website::{PageHandler, Website},
 };
+use tracing::{debug, error, info, warn};
 use xlsxwriter::*;
 
 const HEADER: [&str; 6] = [
@@ -28,7 +29,10 @@ impl MyPageHandler {
     fn write_row(&mut self, values: &[String]) {
         let mut sheet = self.book.get_worksheet("sheet").unwrap();
         for (i, value) in values.iter().enumerate() {
-            sheet.write_string(self.row, i as u16, value, None).unwrap();
+            match sheet.write_string(self.row, i as u16, value, None) {
+                Err(e) => error!("{}", e),
+                _ => debug!("write {}:{} {}", self.row, i, value),
+            }
         }
         self.row += 1;
     }
@@ -55,7 +59,7 @@ impl PageHandler for MyPageHandler {
                 let vs = parse_project_info(&content, "#noticeArea>p");
                 self.write_row(&vs);
             } else {
-                println!("{} no 项目编号", page.get_url());
+                println!("{} #noticeArea not contains 项目编号", page.get_url());
             }
             Vec::new()
         } else if let Some(content) = html.select(&Selector::parse("#textarea").unwrap()).next() {
@@ -64,17 +68,22 @@ impl PageHandler for MyPageHandler {
                 let vs = parse_project_info(&content, "table tr td:only-child");
                 self.write_row(&vs);
             } else {
-                println!("{} not contains 项目编号：", page.get_url());
+                warn!("{} #textarea not contains 项目编号", page.get_url());
             }
             Vec::new()
         } else {
-            println!("{} no ul.news_list2 and #textarea", page.get_url());
+            warn!(
+                "{} no 'ul.news_list2', '#noticeArea' or '#textarea'",
+                page.get_url()
+            );
             Vec::new()
         }
     }
 }
 
 fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+
     let wb = Workbook::new("result.xlsx");
     let mut sheet = wb.add_worksheet(Some("sheet")).unwrap();
     for (i, v) in HEADER.into_iter().enumerate() {
@@ -86,11 +95,14 @@ fn main() -> Result<()> {
         "/sdgp2017/site/listnew.jsp?grade=province&colcode=0301",
     );
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=2");
-    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=3");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=500");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1000");
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1&projectcode=SDGP370000201902007131");
     website.configuration.verbose = true; // Defaults to false
     website.page_handler = Some(Box::new(MyPageHandler::new(wb)));
     website.crawl();
+
+    info!("crawl finished, save result to result.xlsx");
 
     Ok(())
 }
@@ -105,33 +117,33 @@ fn parse_element_content(name: &str, element: &scraper::ElementRef) -> String {
 }
 
 fn parse_project_info(content: &scraper::ElementRef, selector: &str) -> Vec<String> {
-    println!("----------------------------------------");
+    debug!("----------------------------------------");
     let mut values = vec!["".to_string(); 6];
     for e in content.select(&Selector::parse(selector).unwrap()) {
         let s = e.inner_html();
         if s.contains("编号：") || s.contains("编号）：") {
             let v = parse_element_content("：", &e);
-            println!("项目编号 {}", v);
+            debug!("项目编号 {}", v);
             values[0] = v;
         } else if s.contains("项目名称：") {
             let v = parse_element_content("项目名称：", &e);
-            println!("项目名称 {}", v);
+            debug!("项目名称 {}", v);
             values[1] = v;
         } else if s.contains("预算金额：") {
             let v = parse_element_content("预算金额：", &e);
-            println!("预算金额 {}", v);
+            debug!("预算金额 {}", v);
             values[2] = v;
         } else if s.contains("开启时间：") {
             let v = parse_element_content("开启时间：", &e);
-            println!("开启时间 {}", v);
+            debug!("开启时间 {}", v);
             values[3] = v;
         } else if s.contains("开启地点：") {
             let v = parse_element_content("开启地点：", &e);
-            println!("开启地点 {}", v);
+            debug!("开启地点 {}", v);
             values[4] = v;
         } else if s.contains("截止时间：") {
             let v = parse_element_content("截止时间：", &e);
-            println!("截止时间 {}", v);
+            debug!("截止时间 {}", v);
             values[5] = v;
         }
     }
