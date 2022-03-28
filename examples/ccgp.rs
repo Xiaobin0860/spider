@@ -1,35 +1,40 @@
 use anyhow::{Ok, Result};
 use scraper::Selector;
-use simple_excel_writer::*;
-use spider::{page::Page, website::Website};
+use spider::{
+    page::Page,
+    website::{PageHandler, Website},
+};
+use xlsxwriter::*;
 
-fn main() -> Result<()> {
-    let mut wb = Workbook::create("result.xlsx");
-    let mut sheet = wb.create_sheet("Sheet1");
-    // sheet.add_column(Column { width: 30.0 });
-    // sheet.add_column(Column { width: 30.0 });
-    // sheet.add_column(Column { width: 80.0 });
-    // sheet.add_column(Column { width: 60.0 });
-    wb.write_sheet(&mut sheet, |sheet_writer| {
-        sheet_writer.append_row(row![
-            "项目编号",
-            "项目名称",
-            "预算金额",
-            "开启时间",
-            "开启地点",
-            "截止时间"
-        ])
-    })?;
+const HEADER: [&str; 6] = [
+    "项目编号",
+    "项目名称",
+    "预算金额",
+    "开启时间",
+    "开启地点",
+    "截止时间",
+];
 
-    let mut website = Website::new_start(
-        "http://www.ccgp-shandong.gov.cn",
-        "/sdgp2017/site/listnew.jsp?grade=province&colcode=0301",
-    );
-    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=2");
-    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=3");
-    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1&projectcode=SDGP370000201902007131");
-    website.configuration.verbose = true; // Defaults to false
-    website.on_page_callback = Some(|page: Page| -> Vec<String> {
+struct MyPageHandler {
+    book: Workbook,
+    row: u32,
+}
+
+impl MyPageHandler {
+    fn new(book: Workbook) -> Self {
+        Self { book, row: 1 }
+    }
+
+    fn write_row(&mut self, values: &[String]) {
+        let mut sheet = self.book.get_worksheet("sheet").unwrap();
+        for (i, value) in values.iter().enumerate() {
+            sheet.write_string(self.row, i as u16, value, None).unwrap();
+        }
+        self.row += 1;
+    }
+}
+impl PageHandler for MyPageHandler {
+    fn handle(&mut self, page: Page) -> Vec<String> {
         let html = page.get_html();
         if let Some(news) = html
             .select(&Selector::parse("ul.news_list2").unwrap())
@@ -48,7 +53,7 @@ fn main() -> Result<()> {
             let content_inner = content.inner_html();
             if content_inner.contains("编号：") || content_inner.contains("编号）：") {
                 let vs = parse_project_info(&content, "#noticeArea>p");
-                println!("{:?}", vs);
+                self.write_row(&vs);
             } else {
                 println!("{} no 项目编号", page.get_url());
             }
@@ -57,7 +62,7 @@ fn main() -> Result<()> {
             let content_inner = content.inner_html();
             if content_inner.contains("编号：") || content_inner.contains("编号）：") {
                 let vs = parse_project_info(&content, "table tr td:only-child");
-                println!("{:?}", vs);
+                self.write_row(&vs);
             } else {
                 println!("{} not contains 项目编号：", page.get_url());
             }
@@ -66,7 +71,25 @@ fn main() -> Result<()> {
             println!("{} no ul.news_list2 and #textarea", page.get_url());
             Vec::new()
         }
-    });
+    }
+}
+
+fn main() -> Result<()> {
+    let wb = Workbook::new("result.xlsx");
+    let mut sheet = wb.add_worksheet(Some("sheet")).unwrap();
+    for (i, v) in HEADER.into_iter().enumerate() {
+        sheet.write_string(0, i as u16, v, None).unwrap();
+    }
+
+    let mut website = Website::new_start(
+        "http://www.ccgp-shandong.gov.cn",
+        "/sdgp2017/site/listnew.jsp?grade=province&colcode=0301",
+    );
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=2");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=3");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1&projectcode=SDGP370000201902007131");
+    website.configuration.verbose = true; // Defaults to false
+    website.page_handler = Some(Box::new(MyPageHandler::new(wb)));
     website.crawl();
 
     Ok(())

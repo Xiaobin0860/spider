@@ -32,5 +32,5 @@ path = "ccgp.rs"
 
 [dependencies]
 scraper = "0.12"
-simple_excel_writer = "0.2"
+xlsxwriter = "0.3"
 anyhow = "1.0"

@@ -5,6 +5,12 @@ use robotparser::RobotFileParser;
 use std::collections::HashSet;
 use std::{sync, thread, time};
 
+/// Page handler
+pub trait PageHandler {
+    /// handle a `Page`, return links to crawl
+    fn handle(&mut self, page: Page) -> Vec<String>;
+}
+
 /// Represent a website to scrawl. To start crawling, instanciate a new `struct` using
 /// <pre>
 /// let mut localhost = Website::new("http://example.com");
@@ -16,7 +22,6 @@ use std::{sync, thread, time};
 ///     // do something
 /// }
 /// </pre>
-#[derive(Debug)]
 pub struct Website<'a> {
     // configuration properies
     pub configuration: Configuration,
@@ -30,7 +35,7 @@ pub struct Website<'a> {
     pages: Vec<Page>,
     /// callback when a link is found
     pub on_link_find_callback: fn(String) -> Option<String>,
-    pub on_page_callback: Option<fn(Page) -> Vec<String>>,
+    pub page_handler: Option<Box<dyn PageHandler>>,
     /// Robot.txt parser holder
     robot_file_parser: RobotFileParser<'a>,
 }
@@ -51,7 +56,7 @@ impl<'a> Website<'a> {
             pages: Default::default(),
             robot_file_parser: parser,
             on_link_find_callback: Some,
-            on_page_callback: None,
+            page_handler: None,
         }
     }
 
@@ -70,7 +75,7 @@ impl<'a> Website<'a> {
             pages: Default::default(),
             robot_file_parser: parser,
             on_link_find_callback: Some,
-            on_page_callback: None,
+            page_handler: None,
         }
     }
 
@@ -121,8 +126,8 @@ impl<'a> Website<'a> {
                     println!("- parse {}", page.get_url());
                 }
                 self.links_visited.insert(page.get_url());
-                let page_links = if let Some(on_page_callback) = self.on_page_callback {
-                    on_page_callback(page)
+                let page_links = if let Some(page_handler) = &mut self.page_handler {
+                    page_handler.handle(page)
                 } else {
                     let links = page.links(&self.domain);
                     self.pages.push(page);
