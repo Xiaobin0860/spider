@@ -95,7 +95,16 @@ fn main() -> Result<()> {
         "/sdgp2017/site/listnew.jsp?grade=province&colcode=0301",
     );
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=2");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=50");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=100");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=200");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=300");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=400");
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=500");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=600");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=700");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=800");
+    website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=900");
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1000");
     website.add_link("http://www.ccgp-shandong.gov.cn/sdgp2017/site/listnew.jsp?grade=province&colcode=0301&curpage=1&projectcode=SDGP370000201902007131");
     website.configuration.verbose = true; // Defaults to false
